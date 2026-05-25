@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 
 // ─── Supabase client ─────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://jueukptoyvluretywtxf.supabase.co";
@@ -417,7 +418,6 @@ function WorksPanel({ data, reload, toast }) {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
-        const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mjs");
         const data2 = new Uint8Array(evt.target.result);
         const wb = XLSX.read(data2, { type:"array" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
