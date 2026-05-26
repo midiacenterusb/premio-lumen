@@ -717,6 +717,198 @@ function RankingPanel({ data }) {
   );
 }
 
+// ─── Juror Progress Panel ─────────────────────────────────────────────────────
+function JurorProgressPanel({ data }) {
+  const { jurors, categories, works, scores } = data;
+  const [selJuror, setSelJuror] = useState(null);
+
+  // For each juror, compute stats
+  const jurorStats = jurors.map(j => {
+    const jurorCats = categories.filter(c => (j.category_ids||[]).includes(c.id));
+    const jurorWorks = works.filter(w => (j.category_ids||[]).includes(w.category_id));
+    const jurorScores = scores.filter(s => s.juror_id === j.id);
+
+    // A work is fully evaluated when all criteria of its category have a score
+    const evaluated = jurorWorks.filter(w => {
+      const cat = categories.find(c => c.id === w.category_id);
+      if (!cat || !cat.criteria || cat.criteria.length === 0) return false;
+      return cat.criteria.every(cr => jurorScores.some(s => s.work_id === w.id && s.criterion_id === cr.id));
+    });
+
+    const pending = jurorWorks.filter(w => !evaluated.find(e => e.id === w.id));
+    const allScoreValues = jurorScores.map(s => s.score);
+    const avgScore = allScoreValues.length > 0 ? avg(allScoreValues) : null;
+    const pct = jurorWorks.length > 0 ? Math.round(evaluated.length / jurorWorks.length * 100) : 0;
+
+    // Per category breakdown
+    const catBreakdown = jurorCats.map(cat => {
+      const cw = jurorWorks.filter(w => w.category_id === cat.id);
+      const ce = evaluated.filter(w => w.category_id === cat.id);
+      return { cat, total: cw.length, done: ce.length, works: cw, evaluated: ce };
+    });
+
+    return { juror: j, jurorCats, totalWorks: jurorWorks.length, evaluated: evaluated.length, pending, avgScore, pct, catBreakdown };
+  });
+
+  const overall = jurors.length > 0 ? Math.round(jurorStats.reduce((s,j) => s + j.pct, 0) / jurors.length) : 0;
+  const finished = jurorStats.filter(j => j.pct === 100).length;
+
+  const sel = selJuror ? jurorStats.find(j => j.juror.id === selJuror) : null;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div><h2 className="page-title">Progresso dos Jurados</h2><div className="page-sub">Acompanhamento em tempo real das avaliações</div></div>
+        {selJuror && <button className="btn btn-ghost" onClick={() => setSelJuror(null)}>← Todos os jurados</button>}
+      </div>
+
+      {/* Summary bar */}
+      {!selJuror && (
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:"1rem",marginBottom:"2rem"}}>
+          {[
+            ["Progresso Geral", `${overall}%`, overall === 100 ? "✅" : "📊"],
+            ["Jurados Concluídos", `${finished}/${jurors.length}`, "🏁"],
+            ["Total de Avaliações", scores.length, "✍️"],
+            ["Trabalhos Avaliados", new Set(scores.map(s=>s.work_id)).size, "📋"],
+          ].map(([label, val, icon]) => (
+            <div className="stat-card" key={label}>
+              <div style={{fontSize:"1.5rem",marginBottom:"0.25rem"}}>{icon}</div>
+              <div className="stat-val" style={{fontSize:"1.8rem"}}>{val}</div>
+              <div className="stat-label">{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Juror detail view */}
+      {sel ? (
+        <div>
+          <div className="card" style={{marginBottom:"1rem"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
+              <div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.4rem",fontWeight:700}}>{sel.juror.name}</div>
+                {sel.juror.email && <div className="text-muted text-sm">{sel.juror.email}</div>}
+              </div>
+              <div style={{display:"flex",gap:"1.5rem",alignItems:"center"}}>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:"2rem",fontWeight:700,color:"var(--gold)"}}>{sel.pct}%</div>
+                  <div className="text-muted text-sm">concluído</div>
+                </div>
+                <div style={{textAlign:"center"}}>
+                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:"2rem",fontWeight:700,color:"var(--gold)"}}>{sel.evaluated}/{sel.totalWorks}</div>
+                  <div className="text-muted text-sm">avaliados</div>
+                </div>
+                {sel.avgScore !== null && (
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"2rem",fontWeight:700,color:"var(--gold)"}}>{sel.avgScore.toFixed(1)}</div>
+                    <div className="text-muted text-sm">nota média</div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="progress-bar" style={{width:"100%",height:8,marginTop:"1rem"}}>
+              <div className="progress-fill" style={{width:`${sel.pct}%`}} />
+            </div>
+          </div>
+
+          {/* Category breakdown */}
+          <div style={{display:"grid",gap:"1rem"}}>
+            {sel.catBreakdown.map(({cat, total, done, works: cw, evaluated: ce}) => {
+              const pct = total > 0 ? Math.round(done/total*100) : 0;
+              const pending = cw.filter(w => !ce.find(e => e.id === w.id));
+              return (
+                <div className="card" key={cat.id}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"0.75rem",flexWrap:"wrap",gap:"0.5rem"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",fontWeight:700}}>{cat.name}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:"1rem"}}>
+                      <span style={{fontSize:"0.875rem",color:"var(--muted)"}}>{done}/{total} avaliados</span>
+                      <span className={`badge ${pct===100?"badge-green":"badge-red"}`}>{pct}%</span>
+                    </div>
+                  </div>
+                  <div className="progress-bar" style={{width:"100%",marginBottom:"0.75rem"}}>
+                    <div className="progress-fill" style={{width:`${pct}%`}} />
+                  </div>
+                  {pending.length > 0 && (
+                    <div>
+                      <div style={{fontSize:"0.75rem",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--muted)",marginBottom:"0.4rem"}}>Pendentes</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"0.35rem"}}>
+                        {pending.map(w => <span key={w.id} className="badge badge-red">{w.title}</span>)}
+                      </div>
+                    </div>
+                  )}
+                  {done === total && total > 0 && (
+                    <div style={{color:"#2e7d32",fontSize:"0.875rem",fontWeight:500}}>✅ Categoria concluída!</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Juror cards grid */
+        jurors.length === 0 ? (
+          <div className="card"><EmptyState icon="👨‍⚖️" text="Nenhum jurado cadastrado." /></div>
+        ) : (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:"1rem"}}>
+            {jurorStats.map(({ juror: j, totalWorks, evaluated, pending, avgScore, pct, catBreakdown }) => (
+              <div key={j.id} className="card" style={{cursor:"pointer",transition:"box-shadow 0.15s"}}
+                onClick={() => setSelJuror(j.id)}
+                onMouseEnter={e => e.currentTarget.style.boxShadow="0 4px 24px rgba(201,148,58,0.18)"}
+                onMouseLeave={e => e.currentTarget.style.boxShadow=""}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"0.75rem"}}>
+                  <div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.05rem",fontWeight:700}}>{j.name}</div>
+                    {j.email && <div className="text-muted text-sm">{j.email}</div>}
+                  </div>
+                  <span className={`badge ${pct===100?"badge-green":pct>0?"badge-gold":"badge-red"}`}>
+                    {pct===100?"✅ Concluído":pct>0?`${pct}% feito`:"Não iniciado"}
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="progress-bar" style={{width:"100%",height:6,marginBottom:"0.75rem"}}>
+                  <div className="progress-fill" style={{width:`${pct}%`}} />
+                </div>
+
+                {/* Stats row */}
+                <div style={{display:"flex",gap:"1rem",marginBottom:"0.75rem"}}>
+                  <div style={{flex:1,textAlign:"center",background:"var(--cream)",borderRadius:8,padding:"0.5rem"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",fontWeight:700,color:"var(--gold)"}}>{evaluated}</div>
+                    <div style={{fontSize:"0.7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.04em"}}>Avaliados</div>
+                  </div>
+                  <div style={{flex:1,textAlign:"center",background:"var(--cream)",borderRadius:8,padding:"0.5rem"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",fontWeight:700,color:"var(--red)"}}>{pending.length}</div>
+                    <div style={{fontSize:"0.7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.04em"}}>Pendentes</div>
+                  </div>
+                  <div style={{flex:1,textAlign:"center",background:"var(--cream)",borderRadius:8,padding:"0.5rem"}}>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:"1.3rem",fontWeight:700,color:"var(--gold)"}}>{avgScore!==null?avgScore.toFixed(1):"—"}</div>
+                    <div style={{fontSize:"0.7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:"0.04em"}}>Nota média</div>
+                  </div>
+                </div>
+
+                {/* Category mini progress */}
+                <div style={{display:"grid",gap:"0.3rem"}}>
+                  {catBreakdown.map(({cat,total,done}) => (
+                    <div key={cat.id} style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.78rem"}}>
+                      <span style={{flex:1,color:"var(--muted)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cat.name}</span>
+                      <span style={{flexShrink:0,color:done===total&&total>0?"#2e7d32":"var(--muted)",fontSize:"0.72rem",fontWeight:600}}>{done}/{total}</span>
+                      <div style={{width:60,height:4,background:"var(--border)",borderRadius:2,flexShrink:0,overflow:"hidden"}}>
+                        <div style={{height:"100%",background:done===total&&total>0?"#4caf50":"var(--gold)",borderRadius:2,width:`${total>0?Math.round(done/total*100):0}%`}} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{marginTop:"0.75rem",fontSize:"0.75rem",color:"var(--muted)",textAlign:"right"}}>Clique para detalhes →</div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
 // ─── Admin App ────────────────────────────────────────────────────────────────
 function AdminApp({ onLogout }) {
   const [tab, setTab] = useState("dashboard");
@@ -747,6 +939,7 @@ function AdminApp({ onLogout }) {
     {id:"categories",label:"Categorias",icon:"🗂️",section:null},
     {id:"works",label:"Trabalhos",icon:"📋",section:null},
     {id:"jurors",label:"Jurados",icon:"👨‍⚖️",section:null},
+    {id:"progress",label:"Progresso",icon:"📈",section:null},
     {id:"ranking",label:"Ranking",icon:"🏆",section:"RESULTADOS"},
   ];
 
@@ -778,6 +971,7 @@ function AdminApp({ onLogout }) {
               {tab==="categories" && <CategoriesPanel data={data} reload={loadData} toast={toast} />}
               {tab==="works" && <WorksPanel data={data} reload={loadData} toast={toast} />}
               {tab==="jurors" && <JurorsPanel data={data} reload={loadData} toast={toast} siteUrl={siteUrl} />}
+              {tab==="progress" && <JurorProgressPanel data={data} />}
               {tab==="ranking" && <RankingPanel data={data} />}
             </div>
           </div>
