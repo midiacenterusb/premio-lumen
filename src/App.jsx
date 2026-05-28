@@ -1042,9 +1042,28 @@ function JurorApp({ token }) {
   const evaluatedCount = catWorks.filter(w=>isEvaluated(w.id)).length;
 
   const saveAndBack = async () => {
+    if (!cat || !selWork) return;
     setSaving(true);
-    await new Promise(r=>setTimeout(r,600));
-    setSaving(false); setSelWork(null);
+    try {
+      // Save ALL criteria for this work — including ones still at default value 5
+      // This guarantees the work is marked as evaluated even if the juror didn't touch some criteria
+      const upserts = (cat.criteria || []).map(crit => ({
+        juror_id: juror.id,
+        work_id: selWork.id,
+        criterion_id: crit.id,
+        category_id: selCat,
+        score: getScore(selWork.id, crit.id),
+      }));
+      for (const u of upserts) {
+        await sb.upsert("scores", u, "juror_id,work_id,criterion_id");
+      }
+      // Update local scores state to reflect all saved
+      const newWorkScores = {};
+      upserts.forEach(u => { newWorkScores[u.criterion_id] = u.score; });
+      setScores(prev => ({ ...prev, [selWork.id]: { ...(prev[selWork.id]||{}), ...newWorkScores } }));
+    } catch(e) { console.error("Erro ao salvar:", e); }
+    setSaving(false);
+    setSelWork(null);
   };
 
   if (loading) return <><style>{STYLES}</style><Loading text="Carregando avaliação..." /></>;
