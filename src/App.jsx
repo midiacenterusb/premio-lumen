@@ -354,22 +354,18 @@ function Dashboard({ data }) {
         )}
       </div>
 
-      {/* Works progress table */}
+      {/* Category overview table */}
       <div className="card">
-        <div className="card-title">📂 Progresso de avaliações por categoria</div>
+        <div className="card-title">📂 Visão geral das categorias</div>
         {categories.length === 0 ? <EmptyState icon="🗂️" text="Nenhuma categoria cadastrada." /> : (
           <div className="table-wrap"><table>
-            <thead><tr><th>Categoria</th><th>Critérios</th><th>Trabalhos</th><th>Progresso de avaliações</th></tr></thead>
+            <thead><tr><th>Categoria</th><th>Critérios</th><th>Trabalhos</th></tr></thead>
             <tbody>
-              {catStats.map(({ cat, cw, cj, evaluatedWorks, pct }) => (
+              {catStats.map(({ cat, cw }) => (
                 <tr key={cat.id}>
                   <td><strong>{cat.name}</strong></td>
                   <td><span className="badge badge-ink">{(cat.criteria||[]).length}</span></td>
-                  <td><span className="badge badge-ink">{cw.length}</span></td>
-                  <td>
-                    <div style={{fontSize:"0.8rem",color:"var(--muted)",marginBottom:"0.25rem"}}>{evaluatedWorks}/{cw.length} avaliados</div>
-                    <div className="progress-bar" style={{width:120}}><div className="progress-fill" style={{width:`${pct}%`}} /></div>
-                  </td>
+                  <td><span className="badge badge-gold">{cw.length}</span></td>
                 </tr>
               ))}
             </tbody>
