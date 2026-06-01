@@ -243,7 +243,9 @@ function Dashboard({ data }) {
     return { cat, cw, cj, started, completed, evaluatedWorks, pct, ok };
   });
 
-  const alertCount = catStats.filter(s => !s.ok).length;
+  const alertSemJurados  = catStats.filter(s => s.cj.length < MIN_JURORS).length;
+  const alertSemMinVotos = catStats.filter(s => s.cj.length >= MIN_JURORS && s.completed.length < MIN_JURORS).length;
+  const catOk            = catStats.filter(s => s.completed.length >= MIN_JURORS).length;
 
   return (
     <div>
@@ -256,20 +258,29 @@ function Dashboard({ data }) {
         ))}
       </div>
 
-      {/* Juror coverage alert */}
-      {alertCount > 0 && (
-        <div style={{marginBottom:"1.5rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#fce4e4",border:"1px solid #f5c6c6",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-          <span style={{fontSize:"1.25rem"}}>⚠️</span>
+      {/* Alerts */}
+      {alertSemJurados > 0 && (
+        <div style={{marginBottom:"1rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#fce4e4",border:"1px solid #f5c6c6",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <span style={{fontSize:"1.25rem"}}>❌</span>
           <div>
-            <strong style={{color:"#b83232"}}>{alertCount} categoria(s) abaixo do mínimo de {MIN_JURORS} jurados</strong>
-            <div style={{fontSize:"0.82rem",color:"#b83232",marginTop:"0.15rem"}}>Adicione jurados nestas categorias para garantir um resultado confiável.</div>
+            <strong style={{color:"#b83232"}}>{alertSemJurados} categoria(s) abaixo de {MIN_JURORS} jurados atribuídos</strong>
+            <div style={{fontSize:"0.82rem",color:"#b83232",marginTop:"0.15rem"}}>Adicione jurados para garantir um resultado confiável.</div>
           </div>
         </div>
       )}
-      {alertCount === 0 && categories.length > 0 && (
-        <div style={{marginBottom:"1.5rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#e8f5e9",border:"1px solid #c8e6c9",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-          <span style={{fontSize:"1.25rem"}}>✅</span>
-          <strong style={{color:"#2e7d32"}}>Todas as categorias atingiram o mínimo de {MIN_JURORS} jurados!</strong>
+      {alertSemMinVotos > 0 && (
+        <div style={{marginBottom:"1rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#fdf3de",border:"1px solid #f0d89a",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <span style={{fontSize:"1.25rem"}}>⏳</span>
+          <div>
+            <strong style={{color:"#b87c00"}}>{alertSemMinVotos} categoria(s) ainda não atingiram {MIN_JURORS} votos completos</strong>
+            <div style={{fontSize:"0.82rem",color:"#b87c00",marginTop:"0.15rem"}}>Jurados suficientes atribuídos, mas aguardando conclusão das avaliações.</div>
+          </div>
+        </div>
+      )}
+      {catOk > 0 && catOk === categories.length && (
+        <div style={{marginBottom:"1rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#e8f5e9",border:"1px solid #c8e6c9",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <span style={{fontSize:"1.25rem"}}>🏆</span>
+          <strong style={{color:"#2e7d32"}}>Todas as categorias atingiram o mínimo de {MIN_JURORS} votos completos!</strong>
         </div>
       )}
 
@@ -314,9 +325,26 @@ function Dashboard({ data }) {
                       <span style={{fontSize:"0.78rem",color:"var(--muted)"}}> / {cj.length}</span>
                     </td>
                     <td>
-                      <span style={{padding:"0.25rem 0.75rem",borderRadius:20,fontSize:"0.78rem",fontWeight:600,background:statusBg,color:statusColor}}>
-                        {statusText}
-                      </span>
+                      {(() => {
+                        const completedOk = completed.length >= MIN_JURORS;
+                        const assignedOk  = cj.length >= MIN_JURORS;
+                        let bg, color, text;
+                        if (!assignedOk) {
+                          bg = "#fce4e4"; color = "#b83232";
+                          text = cj.length === 0 ? "❌ Sem jurados" : `❌ Faltam ${MIN_JURORS - cj.length} jurado(s)`;
+                        } else if (!completedOk) {
+                          bg = "#fdf3de"; color = "#b87c00";
+                          text = `⏳ ${completed.length}/${MIN_JURORS} concluídos`;
+                        } else {
+                          bg = "#e8f5e9"; color = "#2e7d32";
+                          text = `✅ Mínimo atingido!`;
+                        }
+                        return (
+                          <span style={{padding:"0.25rem 0.75rem",borderRadius:20,fontSize:"0.78rem",fontWeight:600,background:bg,color}}>
+                            {text}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );
