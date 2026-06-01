@@ -211,42 +211,139 @@ function AdminLogin({ onLogin }) {
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
+const MIN_JURORS = 5;
+
 function Dashboard({ data }) {
   const { categories, works, jurors, scores } = data;
   const totalScores = scores.length;
+
+  // Per-category juror coverage stats
+  const catStats = categories.map(cat => {
+    const cw = works.filter(w => w.category_id === cat.id);
+    const cj = jurors.filter(j => (j.category_ids||[]).includes(cat.id));
+
+    // Jurors who voted at least 1 work in this category
+    const startedIds = new Set(scores.filter(s => s.category_id === cat.id).map(s => s.juror_id));
+    const started = cj.filter(j => startedIds.has(j.id));
+
+    // Jurors who fully completed all works in this category
+    const completed = cj.filter(j => {
+      return cw.every(w => {
+        return (cat.criteria||[]).every(cr =>
+          scores.some(s => s.juror_id===j.id && s.work_id===w.id && s.criterion_id===cr.id)
+        );
+      });
+    });
+
+    const cs = scores.filter(s => s.category_id === cat.id);
+    const evaluatedWorks = new Set(cs.map(s => s.work_id)).size;
+    const pct = cw.length > 0 ? Math.round(evaluatedWorks / cw.length * 100) : 0;
+    const ok = cj.length >= MIN_JURORS;
+
+    return { cat, cw, cj, started, completed, evaluatedWorks, pct, ok };
+  });
+
+  const alertCount = catStats.filter(s => !s.ok).length;
+
   return (
     <div>
       <div className="page-header"><div><h2 className="page-title">Visão Geral</h2><div className="page-sub">Resumo do sistema de avaliação</div></div></div>
+
+      {/* Top stats */}
       <div className="stats-grid">
         {[["Categorias", categories.length],["Trabalhos", works.length],["Jurados", jurors.length],["Avaliações feitas", totalScores]].map(([l,v]) => (
           <div className="stat-card" key={l}><div className="stat-val">{v}</div><div className="stat-label">{l}</div></div>
         ))}
       </div>
-      <div className="card">
-        <div className="card-title">📂 Categorias e progresso</div>
+
+      {/* Juror coverage alert */}
+      {alertCount > 0 && (
+        <div style={{marginBottom:"1.5rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#fce4e4",border:"1px solid #f5c6c6",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <span style={{fontSize:"1.25rem"}}>⚠️</span>
+          <div>
+            <strong style={{color:"#b83232"}}>{alertCount} categoria(s) abaixo do mínimo de {MIN_JURORS} jurados</strong>
+            <div style={{fontSize:"0.82rem",color:"#b83232",marginTop:"0.15rem"}}>Adicione jurados nestas categorias para garantir um resultado confiável.</div>
+          </div>
+        </div>
+      )}
+      {alertCount === 0 && categories.length > 0 && (
+        <div style={{marginBottom:"1.5rem",padding:"0.875rem 1.25rem",borderRadius:10,background:"#e8f5e9",border:"1px solid #c8e6c9",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <span style={{fontSize:"1.25rem"}}>✅</span>
+          <strong style={{color:"#2e7d32"}}>Todas as categorias atingiram o mínimo de {MIN_JURORS} jurados!</strong>
+        </div>
+      )}
+
+      {/* Juror coverage table */}
+      <div className="card" style={{marginBottom:"1.5rem"}}>
+        <div className="card-title">👨‍⚖️ Cobertura de jurados por categoria</div>
+        <div style={{fontSize:"0.78rem",color:"var(--muted)",marginBottom:"1rem"}}>Mínimo recomendado: <strong>{MIN_JURORS} jurados</strong> por categoria para um resultado confiável.</div>
         {categories.length === 0 ? <EmptyState icon="🗂️" text="Nenhuma categoria cadastrada." /> : (
           <div className="table-wrap"><table>
-            <thead><tr><th>Categoria</th><th>Critérios</th><th>Trabalhos</th><th>Jurados</th><th>Avaliações</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Categoria</th>
+                <th>Jurados atribuídos</th>
+                <th>Iniciaram</th>
+                <th>Concluíram</th>
+                <th>Status</th>
+              </tr>
+            </thead>
             <tbody>
-              {categories.map(cat => {
-                const cw = works.filter(w => w.category_id === cat.id);
-                const cj = jurors.filter(j => (j.category_ids||[]).includes(cat.id));
-                const cs = scores.filter(s => s.category_id === cat.id);
-                const evaluated = new Set(cs.map(s=>s.work_id)).size;
-                const pct = cw.length > 0 ? Math.round(evaluated/cw.length*100) : 0;
+              {catStats.map(({ cat, cj, started, completed, ok }) => {
+                const statusColor = cj.length === 0 ? "#b83232" : !ok ? "#b87c00" : "#2e7d32";
+                const statusBg   = cj.length === 0 ? "#fce4e4" : !ok ? "#fdf3de" : "#e8f5e9";
+                const statusText = cj.length === 0 ? "❌ Sem jurados" : !ok ? `⚠️ Faltam ${MIN_JURORS - cj.length}` : "✅ OK";
                 return (
                   <tr key={cat.id}>
                     <td><strong>{cat.name}</strong></td>
-                    <td><span className="badge badge-ink">{(cat.criteria||[]).length}</span></td>
-                    <td><span className="badge badge-ink">{cw.length}</span></td>
-                    <td><span className="badge badge-ink">{cj.length}</span></td>
                     <td>
-                      <div style={{fontSize:"0.8rem",color:"var(--muted)",marginBottom:"0.25rem"}}>{evaluated}/{cw.length} avaliados</div>
-                      <div className="progress-bar" style={{width:100}}><div className="progress-fill" style={{width:`${pct}%`}} /></div>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
+                        <span style={{fontFamily:"'Playfair Display',serif",fontSize:"1.2rem",fontWeight:700,color:ok?"var(--gold)":"var(--red)"}}>{cj.length}</span>
+                        <div style={{width:80,height:6,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                          <div style={{height:"100%",borderRadius:3,background:ok?"var(--gold)":"var(--red)",width:`${Math.min(100,Math.round(cj.length/MIN_JURORS*100))}%`}} />
+                        </div>
+                        <span style={{fontSize:"0.75rem",color:"var(--muted)"}}>{Math.min(100,Math.round(cj.length/MIN_JURORS*100))}%</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",fontWeight:700,color:started.length>0?"var(--gold)":"var(--muted)"}}>{started.length}</span>
+                      <span style={{fontSize:"0.78rem",color:"var(--muted)"}}> / {cj.length}</span>
+                    </td>
+                    <td>
+                      <span style={{fontFamily:"'Playfair Display',serif",fontSize:"1.1rem",fontWeight:700,color:completed.length===cj.length&&cj.length>0?"#2e7d32":"var(--muted)"}}>{completed.length}</span>
+                      <span style={{fontSize:"0.78rem",color:"var(--muted)"}}> / {cj.length}</span>
+                    </td>
+                    <td>
+                      <span style={{padding:"0.25rem 0.75rem",borderRadius:20,fontSize:"0.78rem",fontWeight:600,background:statusBg,color:statusColor}}>
+                        {statusText}
+                      </span>
                     </td>
                   </tr>
                 );
               })}
+            </tbody>
+          </table></div>
+        )}
+      </div>
+
+      {/* Works progress table */}
+      <div className="card">
+        <div className="card-title">📂 Progresso de avaliações por categoria</div>
+        {categories.length === 0 ? <EmptyState icon="🗂️" text="Nenhuma categoria cadastrada." /> : (
+          <div className="table-wrap"><table>
+            <thead><tr><th>Categoria</th><th>Critérios</th><th>Trabalhos</th><th>Progresso de avaliações</th></tr></thead>
+            <tbody>
+              {catStats.map(({ cat, cw, cj, evaluatedWorks, pct }) => (
+                <tr key={cat.id}>
+                  <td><strong>{cat.name}</strong></td>
+                  <td><span className="badge badge-ink">{(cat.criteria||[]).length}</span></td>
+                  <td><span className="badge badge-ink">{cw.length}</span></td>
+                  <td>
+                    <div style={{fontSize:"0.8rem",color:"var(--muted)",marginBottom:"0.25rem"}}>{evaluatedWorks}/{cw.length} avaliados</div>
+                    <div className="progress-bar" style={{width:120}}><div className="progress-fill" style={{width:`${pct}%`}} /></div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table></div>
         )}
