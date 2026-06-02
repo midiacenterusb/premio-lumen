@@ -1140,7 +1140,7 @@ function JurorApp({ token }) {
     })();
   }, [token]);
 
-  const getScore = (workId, critId) => scores[workId]?.[critId] ?? 5;
+  const getScore = (workId, critId) => scores[workId]?.[critId] ?? 1;
 
   const setScore = (workId, critId, val) => {
     setScores(prev => ({ ...prev, [workId]:{ ...(prev[workId]||{}), [critId]:val } }));
@@ -1252,6 +1252,10 @@ function JurorApp({ token }) {
                       {selWork.results && <div><strong>Resultados:</strong> {selWork.results}</div>}
                     </div>
                   )}
+                  <div style={{ background:"#fdf3de", border:"1px solid #f0d89a", borderRadius:8, padding:"0.6rem 1rem", marginBottom:"1rem", fontSize:"0.82rem", color:"#7a5c1e", display:"flex", alignItems:"center", gap:"0.5rem" }}>
+                    <span>⭐</span>
+                    <span>Avalie cada critério de <strong>1 a 10</strong> — use toda a escala para diferenciar os trabalhos. <strong>1</strong> = muito fraco, <strong>10</strong> = excelente.</span>
+                  </div>
                   <div className="score-grid">
                     {(cat.criteria||[]).map(crit=>{
                       const val=getScore(selWork.id,crit.id);
