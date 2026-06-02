@@ -8,9 +8,7 @@ const SUPABASE_KEY = "sb_publishable_AmED8jTlwmWPdYguPn6ozQ_RnsvfEoZ";
 const sb = {
   headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" },
   async get(table, query = "") {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { 
-      headers: { ...this.headers, "Range-Unit": "items", "Range": "0-49999" } 
-    });
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers: this.headers });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
