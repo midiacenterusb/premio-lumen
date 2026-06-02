@@ -8,7 +8,9 @@ const SUPABASE_KEY = "sb_publishable_AmED8jTlwmWPdYguPn6ozQ_RnsvfEoZ";
 const sb = {
   headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" },
   async get(table, query = "") {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers: this.headers });
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { 
+      headers: { ...this.headers, "Range-Unit": "items", "Range": "0-49999" } 
+    });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
@@ -1046,7 +1048,7 @@ function AdminApp({ onLogout }) {
         sb.get("categories","order=created_at.asc"),
         sb.get("works","order=created_at.asc"),
         sb.get("jurors","order=created_at.asc"),
-        sb.get("scores","select=*"),
+        sb.get("scores","select=*&limit=50000"),
       ]);
       setData({ categories, works, jurors, scores });
     } catch(e) { toast("❌ Erro ao carregar: "+e.message); }
