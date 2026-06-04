@@ -386,6 +386,105 @@ function CategoriesPanel({ data, reload, toast }) {
   const [editingCrit, setEditingCrit] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const exportCriteria = () => {
+    const logoSrc = LOGO_LIGHT;
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Prêmio Lúmen 2026 — Critérios de Avaliação</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #0f0e0c; color: #faf8f4; }
+
+  .cover { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f0e0c; page-break-after: always; padding: 4rem 2rem; text-align: center; }
+  .cover img { max-width: 300px; margin-bottom: 2rem; }
+  .cover-line { width: 60px; height: 2px; background: #c9943a; margin: 1.5rem auto; }
+  .cover-title { font-family: 'Playfair Display', serif; font-size: 2.2rem; color: #c9943a; letter-spacing: 0.06em; }
+  .cover-sub { font-size: 0.85rem; color: #7a7570; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 0.5rem; }
+  .cover-year { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: #faf8f4; margin-top: 0.5rem; }
+
+  .cat-page { width: 100%; min-height: 100vh; background: #0f0e0c; page-break-after: always; padding: 3rem 3.5rem; display: flex; flex-direction: column; }
+  .cat-header { border-bottom: 1px solid #2a2825; padding-bottom: 1.25rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end; }
+  .cat-label { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: #c9943a; margin-bottom: 0.35rem; }
+  .cat-name { font-family: 'Playfair Display', serif; font-size: 1.9rem; font-weight: 700; color: #faf8f4; }
+  .cat-desc { font-size: 0.85rem; color: #7a7570; margin-top: 0.4rem; line-height: 1.5; }
+  .logo-small { opacity: 0.5; }
+  .logo-small img { height: 26px; }
+
+  .criteria-list { flex: 1; display: flex; flex-direction: column; gap: 1.25rem; }
+  .criterion { border: 1px solid #2a2825; border-left: 3px solid #c9943a; border-radius: 8px; padding: 1.25rem 1.5rem; background: #141312; }
+  .criterion-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 0.5rem; }
+  .criterion-num { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: #c9943a; line-height: 1; flex-shrink: 0; }
+  .criterion-name { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: #faf8f4; }
+  .criterion-desc { font-size: 0.85rem; color: #9a9590; line-height: 1.6; padding-left: 2.5rem; }
+  .criterion-scale { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.85rem; padding-left: 2.5rem; }
+  .scale-bar { flex: 1; height: 3px; background: #2a2825; border-radius: 2px; position: relative; }
+  .scale-bar::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; width: 100%; background: linear-gradient(to right, #3a2e1a, #c9943a); border-radius: 2px; }
+  .scale-label { font-size: 0.65rem; color: #7a7570; letter-spacing: 0.06em; white-space: nowrap; }
+
+  .footer { margin-top: auto; padding-top: 1.5rem; border-top: 1px solid #2a2825; display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: #4a4845; }
+  .footer-num { font-family: 'Playfair Display', serif; font-size: 0.9rem; color: #c9943a; }
+
+  @media print {
+    @page { size: A4; margin: 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cover, .cat-page { min-height: 100vh; }
+  }
+</style>
+</head><body>
+
+<div class="cover">
+  <img src="${logoSrc}" alt="Prêmio Lúmen" />
+  <div class="cover-line"></div>
+  <div class="cover-title">Critérios de Avaliação</div>
+  <div class="cover-sub">Guia oficial para os jurados</div>
+  <div class="cover-line"></div>
+  <div class="cover-year">${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</div>
+</div>
+
+${categories.map((cat, ci) => {
+  const criteria = cat.criteria || [];
+  return `
+<div class="cat-page">
+  <div class="cat-header">
+    <div>
+      <div class="cat-label">Categoria ${ci+1} de ${categories.length}</div>
+      <div class="cat-name">${cat.name}</div>
+      ${cat.description ? `<div class="cat-desc">${cat.description}</div>` : ''}
+    </div>
+    <div class="logo-small"><img src="${logoSrc}" alt="" /></div>
+  </div>
+
+  <div class="criteria-list">
+    ${criteria.length === 0 ? `<div style="color:#7a7570;font-size:0.9rem;">Nenhum critério cadastrado para esta categoria.</div>` :
+      criteria.map((cr, i) => `
+    <div class="criterion">
+      <div class="criterion-header">
+        <div class="criterion-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="criterion-name">${cr.name}</div>
+      </div>
+      ${cr.description ? `<div class="criterion-desc">${cr.description}</div>` : '<div class="criterion-desc" style="color:#4a4845;font-style:italic;">Sem descrição detalhada.</div>'}
+      <div class="criterion-scale">
+        <span class="scale-label">1 — Muito fraco</span>
+        <div class="scale-bar"></div>
+        <span class="scale-label">10 — Excelente</span>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div class="footer">
+    <span>Prêmio Lúmen 2026 — Critérios de Avaliação</span>
+    <span class="footer-num">${cat.name}</span>
+  </div>
+</div>`;
+}).join('')}
+
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  };
+
   const openNew = () => { setEditing(null); setForm({ name:"", description:"", criteria:[] }); setNewCrit({name:"",description:""}); setShowModal(true); };
   const openEdit = (cat) => { setEditing(cat); setForm({ name:cat.name, description:cat.description||"", criteria:[...(cat.criteria||[])] }); setNewCrit({name:"",description:""}); setShowModal(true); };
 
@@ -419,7 +518,10 @@ function CategoriesPanel({ data, reload, toast }) {
     <div>
       <div className="page-header">
         <div><h2 className="page-title">Categorias</h2><div className="page-sub">Gerencie categorias e critérios</div></div>
-        <button className="btn btn-primary" onClick={openNew}>+ Nova Categoria</button>
+        <div style={{display:"flex",gap:"0.5rem"}}>
+          <button className="btn btn-ghost" onClick={exportCriteria}>📄 Exportar critérios (PDF)</button>
+          <button className="btn btn-primary" onClick={openNew}>+ Nova Categoria</button>
+        </div>
       </div>
       {categories.length === 0 ? (
         <div className="card"><EmptyState icon="🗂️" text="Nenhuma categoria." action={<button className="btn btn-primary" onClick={openNew}>Criar</button>} /></div>
@@ -859,6 +961,8 @@ function RankingPanel({ data }) {
   .table-section td { padding: 0.7rem 1rem; border-bottom: 1px solid #1a1917; color: #faf8f4; }
   .table-section tr:last-child td { border-bottom: none; }
   .pos-num { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; color: #c9943a; }
+  .podium-link { display: inline-block; margin-top: 0.75rem; padding: 0.3rem 0.75rem; border-radius: 20px; border: 1px solid #c9943a; color: #c9943a; font-size: 0.72rem; text-decoration: none; letter-spacing: 0.04em; }
+  .podium-link:hover { background: #c9943a; color: #0f0e0c; }
   .score-val { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: #c9943a; }
   .footer { margin-top: auto; padding-top: 2rem; border-top: 1px solid #2a2825; display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #4a4845; }
 
@@ -903,13 +1007,14 @@ ${allRankings.map(({cat:c, ranked:r}) => {
         ${w.author ? `<div class="podium-author">${w.author}</div>` : ''}
         <div class="podium-score ${colorClass[i]}">${w.score.toFixed(2)}</div>
         <div class="podium-score-label">nota média</div>
+        ${w.link ? `<a href="${w.link}" target="_blank" class="podium-link">🔗 Ver trabalho</a>` : ''}
       </div>
     </div>`).join('')}
   </div>
 
   <div class="table-section">
     <table>
-      <thead><tr><th>#</th><th>Trabalho</th><th>Responsável</th><th>Nota média</th><th>Jurados</th></tr></thead>
+      <thead><tr><th>#</th><th>Trabalho</th><th>Responsável</th><th>Nota média</th><th>Jurados</th><th>Link</th></tr></thead>
       <tbody>
         ${allRanked.slice(0,10).map((w,i) => `
         <tr>
@@ -918,6 +1023,7 @@ ${allRankings.map(({cat:c, ranked:r}) => {
           <td>${w.author||'—'}</td>
           <td><span class="score-val">${w.score.toFixed(2)}</span></td>
           <td>${w.jurorCount}/${catJurorsCount}</td>
+          <td>${w.link ? `<a href="${w.link}" target="_blank" class="table-link">🔗 acessar</a>` : '—'}</td>
         </tr>`).join('')}
       </tbody>
     </table>
