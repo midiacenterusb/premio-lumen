@@ -780,22 +780,172 @@ function RankingPanel({ data }) {
   const catJurors = jurors.filter(j=>(j.category_ids||[]).includes(selCat));
   const catScores = scores.filter(s=>s.category_id===selCat);
 
-  const ranked = catWorks.map(work => {
-    const ws = catScores.filter(s=>s.work_id===work.id);
-    const jurorIds = [...new Set(ws.map(s=>s.juror_id))];
-    const jurorAvgs = jurorIds.map(jid => {
-      const js = ws.filter(s=>s.juror_id===jid);
-      return avg(js.map(s=>s.score));
-    });
-    const score = jurorAvgs.length>0 ? avg(jurorAvgs) : null;
-    return { ...work, score, jurorCount: jurorIds.length };
-  }).sort((a,b)=>{ if(a.score===null&&b.score===null) return 0; if(a.score===null) return 1; if(b.score===null) return -1; return b.score-a.score; });
+  const getRanked = (categoryId) => {
+    const cw = works.filter(w=>w.category_id===categoryId);
+    const cs = scores.filter(s=>s.category_id===categoryId);
+    return cw.map(work => {
+      const ws = cs.filter(s=>s.work_id===work.id);
+      const jurorIds = [...new Set(ws.map(s=>s.juror_id))];
+      const jurorAvgs = jurorIds.map(jid => {
+        const js = ws.filter(s=>s.juror_id===jid);
+        return avg(js.map(s=>s.score));
+      });
+      const score = jurorAvgs.length>0 ? avg(jurorAvgs) : null;
+      return { ...work, score, jurorCount: jurorIds.length };
+    }).sort((a,b)=>{ if(a.score===null&&b.score===null) return 0; if(a.score===null) return 1; if(b.score===null) return -1; return b.score-a.score; });
+  };
 
+  const ranked = getRanked(selCat);
   const medals = ["🥇","🥈","🥉"];
+  const medalColors = ["#C9943A","#9E9E9E","#CD7F32"];
+  const positions = ["1º", "2º", "3º"];
+
+  const exportPDF = () => {
+    const allRankings = categories.map(c => ({ cat: c, ranked: getRanked(c.id).filter(w=>w.score!==null).slice(0,3) })).filter(r=>r.ranked.length>0);
+    const logoSrc = LOGO_LIGHT;
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Prêmio Lúmen 2026 — Resultados</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #0f0e0c; color: #faf8f4; }
+  .cover { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0f0e0c; page-break-after: always; padding: 4rem 2rem; text-align: center; }
+  .cover img { max-width: 340px; margin-bottom: 2.5rem; }
+  .cover-title { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: #c9943a; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+  .cover-sub { font-size: 1rem; color: #7a7570; letter-spacing: 0.12em; text-transform: uppercase; }
+  .cover-line { width: 80px; height: 2px; background: #c9943a; margin: 2rem auto; }
+  .cover-year { font-family: 'Playfair Display', serif; font-size: 1.2rem; color: #faf8f4; }
+
+  .cat-page { width: 100%; min-height: 100vh; background: #0f0e0c; page-break-after: always; padding: 3rem 3.5rem; display: flex; flex-direction: column; }
+  .cat-header { border-bottom: 1px solid #2a2825; padding-bottom: 1.5rem; margin-bottom: 2.5rem; display: flex; align-items: flex-end; justify-content: space-between; }
+  .cat-header-logo { opacity: 0.6; }
+  .cat-header-logo img { height: 28px; }
+  .cat-label { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #c9943a; margin-bottom: 0.5rem; }
+  .cat-name { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: #faf8f4; }
+
+  .podium { display: flex; gap: 1.5rem; margin-bottom: 3rem; align-items: flex-end; justify-content: center; }
+  .podium-item { flex: 1; max-width: 260px; text-align: center; position: relative; }
+  .podium-item.pos-1 { order: 2; }
+  .podium-item.pos-2 { order: 1; }
+  .podium-item.pos-3 { order: 3; }
+
+  .podium-card { border-radius: 12px; padding: 1.5rem 1rem; border: 1px solid #2a2825; }
+  .podium-card.gold { background: linear-gradient(160deg, #1e1a12, #15120b); border-color: #c9943a; }
+  .podium-card.silver { background: #161514; border-color: #6b6b6b; }
+  .podium-card.bronze { background: #161514; border-color: #7d5c34; }
+
+  .podium-bar { height: 4px; border-radius: 2px; margin-bottom: 1.5rem; }
+  .podium-bar.gold { background: #c9943a; }
+  .podium-bar.silver { background: #9e9e9e; }
+  .podium-bar.bronze { background: #cd7f32; }
+
+  .podium-pos { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 900; margin-bottom: 0.25rem; }
+  .podium-pos.gold { color: #c9943a; }
+  .podium-pos.silver { color: #9e9e9e; }
+  .podium-pos.bronze { color: #cd7f32; }
+
+  .podium-medal { font-size: 2.5rem; margin-bottom: 0.75rem; }
+  .podium-title { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 700; color: #faf8f4; margin-bottom: 0.4rem; line-height: 1.3; }
+  .podium-author { font-size: 0.8rem; color: #7a7570; margin-bottom: 1rem; }
+  .podium-score { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; }
+  .podium-score.gold { color: #c9943a; }
+  .podium-score.silver { color: #9e9e9e; }
+  .podium-score.bronze { color: #cd7f32; }
+  .podium-score-label { font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: #7a7570; margin-top: 0.1rem; }
+
+  .table-section { flex: 1; }
+  .table-section table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .table-section th { background: #161514; text-align: left; padding: 0.6rem 1rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #7a7570; border-bottom: 1px solid #2a2825; }
+  .table-section td { padding: 0.7rem 1rem; border-bottom: 1px solid #1a1917; color: #faf8f4; }
+  .table-section tr:last-child td { border-bottom: none; }
+  .pos-num { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 700; color: #c9943a; }
+  .score-val { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; color: #c9943a; }
+  .footer { margin-top: auto; padding-top: 2rem; border-top: 1px solid #2a2825; display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #4a4845; }
+
+  @media print {
+    @page { size: A4; margin: 0; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .cover, .cat-page { min-height: 100vh; }
+  }
+</style>
+</head><body>
+
+<div class="cover">
+  <img src="${logoSrc}" alt="Prêmio Lúmen" />
+  <div class="cover-line"></div>
+  <div class="cover-title">Resultados</div>
+  <div class="cover-sub">Sistema de Avaliação — Prêmio Lúmen 2026</div>
+  <div class="cover-line"></div>
+  <div class="cover-year">${new Date().toLocaleDateString('pt-BR', {day:'2-digit', month:'long', year:'numeric'})}</div>
+</div>
+
+${allRankings.map(({cat:c, ranked:r}) => {
+  const colorClass = ["gold","silver","bronze"];
+  const catJurorsCount = jurors.filter(j=>(j.category_ids||[]).includes(c.id)).length;
+  const allRanked = getRanked(c.id).filter(w=>w.score!==null);
+  return `
+<div class="cat-page">
+  <div class="cat-header">
+    <div>
+      <div class="cat-label">Categoria</div>
+      <div class="cat-name">${c.name}</div>
+    </div>
+    <div class="cat-header-logo"><img src="${logoSrc}" alt="Prêmio Lúmen" /></div>
+  </div>
+
+  <div class="podium">
+    ${r.map((w,i) => `
+    <div class="podium-item pos-${i+1}">
+      <div class="podium-card ${colorClass[i]}">
+        <div class="podium-bar ${colorClass[i]}"></div>
+        <div class="podium-medal">${["🥇","🥈","🥉"][i]}</div>
+        <div class="podium-title">${w.title}</div>
+        ${w.author ? `<div class="podium-author">${w.author}</div>` : ''}
+        <div class="podium-score ${colorClass[i]}">${w.score.toFixed(2)}</div>
+        <div class="podium-score-label">nota média</div>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div class="table-section">
+    <table>
+      <thead><tr><th>#</th><th>Trabalho</th><th>Responsável</th><th>Nota média</th><th>Jurados</th></tr></thead>
+      <tbody>
+        ${allRanked.slice(0,10).map((w,i) => `
+        <tr>
+          <td><span class="pos-num">${i+1}</span></td>
+          <td>${w.title}</td>
+          <td>${w.author||'—'}</td>
+          <td><span class="score-val">${w.score.toFixed(2)}</span></td>
+          <td>${w.jurorCount}/${catJurorsCount}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <span>Prêmio Lúmen 2026 — União Sul-Brasileira</span>
+    <span>${c.name}</span>
+  </div>
+</div>`;
+}).join('')}
+
+<script>window.onload = () => window.print();</script>
+</body></html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  };
 
   return (
     <div>
-      <div className="page-header"><div><h2 className="page-title">Ranking</h2><div className="page-sub">Classificação por categoria</div></div></div>
+      <div className="page-header">
+        <div><h2 className="page-title">Ranking</h2><div className="page-sub">Classificação por categoria</div></div>
+        <button className="btn btn-dark" onClick={exportPDF} style={{gap:"0.5rem"}}>
+          📄 Exportar resultados (PDF)
+        </button>
+      </div>
       <div style={{marginBottom:"1.5rem"}}>
         <select className="form-select" style={{maxWidth:280}} value={selCat} onChange={e=>setSelCat(e.target.value)}>
           <option value="">Selecione uma categoria...</option>
